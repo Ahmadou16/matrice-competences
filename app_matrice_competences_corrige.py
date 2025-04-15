@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-st.title("🧠 Matrice de Compétences - Équipe TMA")
+st.title("🧠 Matrice de Compétences - Équipe Clermont-Ferrand")
 
 uploaded_file = st.file_uploader("📤 Importer le fichier Excel de compétences", type=["xlsx"])
 
