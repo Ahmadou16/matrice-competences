@@ -1,52 +1,47 @@
-import streamlit as st
 import pandas as pd
-from io import BytesIO
+import streamlit as st
 
-st.set_page_config(page_title="Matrice de Compétences", layout="wide")
+st.title("🧠 Matrice de Compétences - Équipe TMA")
 
-st.title("🔍 Outil de recherche de compétences")
-
-# Upload ou utilisation d'un fichier par défaut
-uploaded_file = st.file_uploader("Téléverser le fichier Excel", type=["xlsx"])
-default_file = "Matrice_Competences_MODELE.xlsx"
-
-# Charger les données
-@st.cache_data
-def load_data(file):
-    return pd.read_excel(file)
+uploaded_file = st.file_uploader("📤 Importer le fichier Excel de compétences", type=["xlsx"])
 
 if uploaded_file:
-    df = load_data(uploaded_file)
+    try:
+        # Lecture à partir de la 4e ligne (ligne 4 Excel = index 3)
+        df = pd.read_excel(uploaded_file, header=3)
+
+        # Supposons que la première colonne est "Consultant" ou équivalent
+        first_col = df.columns[0]
+        competence_columns = df.columns[1:]
+
+        # Cast toutes les colonnes de compétences en numériques (au cas où elles seraient str)
+        df[competence_columns] = df[competence_columns].apply(pd.to_numeric, errors="coerce")
+
+        st.success("Fichier chargé avec succès !")
+        if st.checkbox("👁️ Aperçu du fichier Excel"):
+            st.dataframe(df.head())
+
+        selected_competences = st.multiselect("🔍 Choisir les compétences à filtrer :", competence_columns)
+
+        if selected_competences:
+            selected_level = st.slider("📊 Niveau minimum requis :", 0, 4, 2)
+
+            filtres = df[[first_col] + list(selected_competences)]
+            filtres = filtres[filtres[selected_competences].ge(selected_level).all(axis=1)]
+
+            st.subheader("📋 Résultats du filtre")
+            st.write(f"{len(filtres)} consultant(s) trouvé(s) avec un niveau ≥ {selected_level}.")
+            st.dataframe(filtres)
+
+            output_file = "resultats_filtrés.xlsx"
+            filtres.to_excel(output_file, index=False)
+            with open(output_file, "rb") as f:
+                st.download_button("💾 Télécharger les résultats", f, file_name=output_file)
+
+        else:
+            st.info("Veuillez sélectionner au moins une compétence.")
+
+    except Exception as e:
+        st.error(f"Erreur : {e}")
 else:
-    df = load_data(default_file)
-    st.info("Aucun fichier téléversé. Utilisation du fichier exemple par défaut.")
-
-# Afficher les données brutes si demandé
-with st.expander("📊 Voir les données brutes"):
-    st.dataframe(df)
-
-# Sélection de la compétence
-competences = list(df.columns[1:])
-competence_choisie = st.selectbox("Choisir une compétence à rechercher", competences)
-
-# Choix du niveau minimum
-niveau_min = st.slider("Choisir le niveau minimum requis", min_value=0, max_value=4, value=3)
-
-# Filtrage
-filtres = df[df[competence_choisie] >= niveau_min]
-
-st.markdown(f"### ✅ Résultats ({len(filtres)} consultant(s) trouvé(s))")
-st.dataframe(filtres[["Consultant", competence_choisie]])
-
-# Export des résultats
-if not filtres.empty:
-    output = BytesIO()
-    filtres.to_excel(output, index=False, engine="openpyxl")
-    output.seek(0)
-
-    st.download_button(
-        label="📥 Télécharger les résultats",
-        data=output,
-        file_name="resultats_filtrés.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    st.warning("Veuillez importer un fichier Excel.")
